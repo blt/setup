@@ -218,7 +218,7 @@ patch_app(A, Vsn, LibDirs) ->
             io:fwrite("[~p vsn ~p] code:add_patha(~s)~n", [A, _ActualVsn, Dir]),
             code:add_patha(Dir);
         [] ->
-            error(no_matching_vsn)
+            erlang:error(no_matching_vsn)
     end.
 
 %% @spec pick_vsn(App::atom(), Dirs::[{Vsn::string(),Dir::string()}], Which) ->
@@ -247,7 +247,7 @@ pick_vsn(A, Dirs, next) ->
         {ok, Cur} ->
             case lists:dropwhile(fun({V, _}) -> V =/= Cur end, Dirs) of
                 [_, {_, _} = Next |_] -> Next;
-                _ -> error(no_matching_vsn)
+                _ -> erlang:error(no_matching_vsn)
             end;
         _ ->
             hd(Dirs)
@@ -258,7 +258,7 @@ pick_vsn(_, Dirs, Vsn) ->
         [Found|_] ->
             Found;
         [] ->
-            error(no_matching_vsn)
+            erlang:error(no_matching_vsn)
     end.
 
 
@@ -470,7 +470,7 @@ read_app(F) ->
         {ok, [App]} ->
             App;
         {error,_} = Error ->
-            error(Error, [F])
+            erlang:error(Error, [F])
     end.
 
 %% slightly modified (and corrected!) version of release_handler:find_script/4.
@@ -654,7 +654,7 @@ run_selected_hooks(Hooks) ->
                        {ok, Other} ->
                            io:fwrite("Invalid abort_on_error flag (~p)~n"
                                      "Aborting...~n", [Other]),
-                           error({invalid_abort_on_error, Other});
+                           erlang:error({invalid_abort_on_error, Other});
                        _ -> false
                    end,
     lists:foreach(
@@ -666,7 +666,7 @@ run_selected_hooks(Hooks) ->
       end, Hooks).
 
 try_apply(M, F, A, Abort) ->
-    {Pid, Ref} = spawn_monitor(
+    {_Pid, Ref} = spawn_monitor(
                    fun() ->
                            exit(try {ok, apply(M, F, A)}
                                 catch
@@ -684,7 +684,7 @@ try_apply(M, F, A, Abort) ->
                     if Abort ->
                             io:fwrite(
                               "Abort on error is set. Terminating sequence~n",[]),
-                            error(Exception);
+                            erlang:error(Exception);
                        true ->
                             ok
                     end
@@ -767,7 +767,7 @@ keep_release(RelVsn) ->
     %% 0. Check
     RelDir = setup_lib:releases_dir(),
     case filelib:is_dir(TargetDir = filename:join(RelDir, RelVsn)) of
-        true -> error({target_dir_exists, TargetDir});
+        true -> erlang:error({target_dir_exists, TargetDir});
         false -> verify_dir(TargetDir)
     end,
     %% 1. Collect info
@@ -834,7 +834,7 @@ fetch_env(AppF) ->
         {ok, [{application,_,Terms}]} ->
             proplists:get_value(env, Terms, []);
         {error, Reason} ->
-            error({reading_app_file, [AppF, Reason]})
+            erlang:error({reading_app_file, [AppF, Reason]})
     end.
 
 otp_root() ->
