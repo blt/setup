@@ -1,3 +1,19 @@
+%% -*- erlang -*-
+%%==============================================================================
+%% Copyright 2014 Ulf Wiger
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%% http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%==============================================================================
 -module(setup_lib).
 
 -export([is_string/1,
@@ -71,10 +87,7 @@ compare_vsns(V1, V2) ->
           end,
     ToS(V1) < ToS(V2).
 
-pad_x(X) ->
-    S = if is_integer(X) -> integer_to_list(X);
-           true -> X
-        end,
+pad_x(S) ->
     lists:duplicate(30 - length(S), $0) ++ [flip(C) || C <- S].
 
 flip(C) when $a =< C, C =< $z -> $A + (C - $a);

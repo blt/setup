@@ -1,6 +1,6 @@
 %% -*- mode: erlang; indent-tabs-mode: nil; -*-
 %%=============================================================================
-%% Copyright 2010 Erlang Solutions Ltd.
+%% Copyright 2014 Ulf Wiger
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -190,8 +190,41 @@ env_value("DATA_DIR") -> data_dir();
 env_value("HOME") -> home().
 
 env_value("APP", A) -> atom_to_list(A);
-env_value("PRIV_DIR", A) -> code:priv_dir(A);
-env_value("LIB_DIR" , A) -> code:lib_dir(A).
+env_value("PRIV_DIR", A) -> priv_dir(A);
+env_value("LIB_DIR" , A) -> lib_dir(A).
+
+priv_dir(A) ->
+    case code:priv_dir(A) of
+        {error, bad_name} ->
+            case is_cur_dir(A) of
+                true ->
+                    filename:join(cwd(), "priv");
+                false ->
+                    error({cannot_get_priv_dir, A})
+            end;
+        D -> D
+    end.
+
+lib_dir(A) ->
+    case code:lib_dir(A) of
+        {error, bad_name} ->
+            case is_cur_dir(A) of
+                true ->
+                    cwd();
+                false ->
+                    error({cannot_get_lib_dir, A})
+            end;
+        D -> D
+    end.
+
+cwd() ->
+    {ok, CWD} = file:get_cwd(),
+    CWD.
+
+is_cur_dir(A) ->
+    As = atom_to_list(A),
+    filename:basename(cwd()) == As.
+
 
 %% @spec patch_app(AppName::atom()) -> true | {error, Reason}
 %%
@@ -718,18 +751,21 @@ format_arg(A) ->
 %% @end
 %%
 applications() ->
-    {ok, [[Boot]]} = init:get_argument(boot),
-    Script = Boot ++ ".script",
-    Apps =
-        case file:consult(Script) of
-            {ok, [{script, _, Commands}]} ->
-                [A || {apply, {application, load, [{application, A, _}]}}
-                          <- Commands];
-            Error ->
-                error_logger:format("Unable to read boot script (~s): ~p~n",
-                                    [Script, Error]),
-                [A || {A, _, _} <- application:loaded_applications()]
-        end,
+    Apps = case init:get_argument(boot) of
+               {ok, [[Boot]]} ->
+                   Script = Boot ++ ".script",
+                   case file:consult(Script) of
+                       {ok, [{script, _, Commands}]} ->
+                           [A || {apply, {application, load, [{application, A, _}]}}
+                                 <- Commands];
+                       Error ->
+                           error_logger:format("Unable to read boot script (~s): ~p~n",
+                                               [Script, Error]),
+                           [A || {A, _, _} <- application:loaded_applications()]
+                   end;
+               _ ->
+                   [A || {A, _, _} <- application:loaded_applications()]
+           end,
     group_applications(Apps).
 
 %% Sort apps in preorder traversal order.
@@ -1039,7 +1075,7 @@ expand_config_script([{include, F}|Opts], Name, Acc) ->
 expand_config_script([{include_lib, LibF}|Opts], Name, Acc) ->
     case filename:split(LibF) of
         [App|Tail] ->
-            case code:lib_dir(App) of
+            try code:lib_dir(to_atom(App)) of
                 {error, bad_name} ->
                     setup_lib:abort(
                       "Error including conf (~s): no such lib (~s)~n",
@@ -1049,6 +1085,11 @@ expand_config_script([{include_lib, LibF}|Opts], Name, Acc) ->
                     Acc1 = read_config_script(
                              FullName, Name, lists:reverse(Acc)),
                     expand_config_script(Opts, Name, Acc1)
+            catch
+                error:_ ->
+                    setup_lib:abort(
+                      "Error including conf (~s): no such lib (~s)~n",
+                      [LibF, App])
             end;
         [] ->
             setup_lib:abort("Invalid include conf: no file specified~n", [])
@@ -1057,6 +1098,11 @@ expand_config_script([H|T], Name, Acc) ->
     expand_config_script(T, Name, [H|Acc]);
 expand_config_script([], _, Acc) ->
     lists:reverse(Acc).
+
+to_atom(B) when is_binary(B) ->
+    binary_to_existing_atom(B, latin1);
+to_atom(L) when is_list(L) ->
+    list_to_existing_atom(L).
 
 
 
