@@ -520,7 +520,6 @@ intersection(A, B) ->
 %% stop, terminating all nodes automatically.
 %%
 run_setup(Parent, Args) ->
-    io:fwrite("Setup running ...~n", []),
     try run_setup_(Parent, Args)
     catch
         error:Error ->
@@ -531,15 +530,12 @@ run_setup(Parent, Args) ->
 
 run_setup_(Parent, _Args) ->
     Res = rpc:multicall(?MODULE, verify_directories, []),
-    io:fwrite("Directories verified. Res = ~p~n", [Res]),
     proc_lib:init_ack(Parent, {ok, self()}),
     Mode = mode(),
     Hooks = find_hooks(Mode),
     run_selected_hooks(Hooks),
-    io:fwrite("Setup finished processing hooks ...~n", []),
     case application:get_env(stop_when_done) of
         {ok, true} ->
-            io:fwrite("Setup stopping...~n", []),
             timer:sleep(timer:seconds(5)),
             rpc:eval_everywhere(init,stop,[0]);
         _ ->
@@ -1068,4 +1064,3 @@ script_vars(Vs) ->
     lists:foldl(fun({K,V}, Acc) ->
                         erl_eval:add_binding(K, V, Acc)
                 end, erl_eval:new_bindings(), Vs).
-
